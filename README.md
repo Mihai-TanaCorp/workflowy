@@ -252,6 +252,7 @@ go build ./cmd/workflowy
 ## Documentation
 
 - [Full CLI Reference](docs/CLI.md)
+- [Public API Coverage and Mirrors](docs/API-COVERAGE.md)
 - [MCP Server Guide](docs/MCP.md)
 - [API Reference](https://workflowy.com/api-reference/)
 - [Changelog](CHANGELOG.md)

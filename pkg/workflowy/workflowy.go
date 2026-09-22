@@ -216,6 +216,8 @@ func NewWorkflowyClient(opts ...client.Option) *WorkflowyClient {
 
 // Item represents a Workflowy item with all its properties
 type Item struct {
+	ParentID    *string                `json:"parent_id"`
+	Completed   bool                   `json:"completed"`
 	ID          string                 `json:"id"`
 	Name        string                 `json:"name"`
 	Note        *string                `json:"note"`
@@ -545,11 +547,13 @@ func BackupNodeToItem(node BackupNode) *Item {
 
 	if node.Completed != nil {
 		item.CompletedAt = node.Completed
+		item.Completed = true
 	}
 
 	// Recursively convert children
 	for i, child := range node.Children {
 		item.Children[i] = BackupNodeToItem(child)
+		item.Children[i].ParentID = &item.ID
 	}
 
 	return item
@@ -621,6 +625,8 @@ func ReadLatestBackup() ([]*Item, error) {
 // ExportNodeToItem converts an ExportNode to an Item
 func ExportNodeToItem(node ExportNode) *Item {
 	return &Item{
+		ParentID:    node.ParentID,
+		Completed:   node.Completed,
 		ID:          node.ID,
 		Name:        node.Name,
 		Note:        node.Note,

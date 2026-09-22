@@ -3,6 +3,8 @@ package workflowy
 import "context"
 
 type Client interface {
+	MirrorNode(ctx context.Context, itemID string, req *MirrorNodeRequest) (*MirrorNodeResponse, error)
+	DeleteMirror(ctx context.Context, itemID string) (*UpdateNodeResponse, error)
 	GetItem(ctx context.Context, itemID string) (*Item, error)
 	ListChildren(ctx context.Context, itemID string) (*ListChildrenResponse, error)
 	ListChildrenRecursive(ctx context.Context, itemID string) (*ListChildrenResponse, error)

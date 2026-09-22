@@ -252,3 +252,10 @@ func TestCountReportCommand_PreserveHTMLTags(t *testing.T) {
 	assert.Contains(t, outputStr, "<b>Bold Parent</b>", "HTML tags should be preserved with --preserve-tags")
 	assert.Contains(t, outputStr, "<i>Italic</i>", "HTML tags should be preserved with --preserve-tags")
 }
+
+func (m *MockClient) MirrorNode(ctx context.Context, id string, req *workflowy.MirrorNodeRequest) (*workflowy.MirrorNodeResponse, error) {
+	return nil, nil
+}
+func (m *MockClient) DeleteMirror(ctx context.Context, id string) (*workflowy.UpdateNodeResponse, error) {
+	return nil, nil
+}
