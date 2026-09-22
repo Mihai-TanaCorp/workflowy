@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- `mirror` and `delete-mirror` commands and Go client methods, covering the remaining public API endpoints.
+- Transport contract tests for all 12 public API operations and an opt-in live mirror test.
+
+### Fixed
+- Preserve `parent_id` and `completed` in JSON nodes and data-source conversions.
+- Allow explicitly empty `update --name ""` and `update --note ""` values.
+- Document `code-block` and `quote-block` layout values.
+
 ## [0.9.0] - Ancestor Retrieval
 
 ### Added
@@ -189,4 +200,3 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Unified client creation code to single function
 - Unified error and log messaging for consistency
-

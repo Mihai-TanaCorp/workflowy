@@ -75,7 +75,7 @@ func getWriteFlags(commandFlags ...cli.Flag) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "layout-mode",
-			Usage: "Display mode: bullets, todo, h1, h2, h3",
+			Usage: "Display mode: bullets, todo, h1, h2, h3, code-block, quote-block",
 		},
 	}
 	flags = append(flags, commandFlags...)
@@ -310,4 +310,3 @@ func getReadRootIdFlag() cli.Flag {
 func getReadRootID(cmd *cli.Command) string {
 	return cmd.String("read-root-id")
 }
-

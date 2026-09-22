@@ -24,6 +24,8 @@ func getCommands() []*cli.Command {
 		getCreateCommand(),
 		getUpdateCommand(),
 		getMoveCommand(),
+		getMirrorCommand(),
+		getDeleteMirrorCommand(),
 		getDeleteCommand(),
 		getCompleteCommand(),
 		getUncompleteCommand(),
@@ -256,6 +258,10 @@ func getCreateCommand() *cli.Command {
 }
 
 func getUpdateCommand() *cli.Command {
+	return getUpdateCommandWithClient(withClient)
+}
+
+func getUpdateCommandWithClient(provider ClientProvider) *cli.Command {
 	return &cli.Command{
 		Name:      "update",
 		Usage:     "Update an existing node",
@@ -271,7 +277,7 @@ func getUpdateCommand() *cli.Command {
 			},
 		},
 		Flags: getWriteFlags(),
-		Action: withClient(func(ctx context.Context, cmd *cli.Command, client workflowy.Client) error {
+		Action: provider(func(ctx context.Context, cmd *cli.Command, client workflowy.Client) error {
 			format := cmd.String("format")
 			if err := validateFormat(format); err != nil {
 				return err
@@ -305,17 +311,17 @@ func getUpdateCommand() *cli.Command {
 
 			req := &workflowy.UpdateNodeRequest{}
 
-			if content != "" && nameFlag != "" {
+			if content != "" && cmd.IsSet("name") {
 				return fmt.Errorf("cannot specify both content argument and --name flag")
 			}
 
 			if content != "" {
 				req.Name = &content
-			} else if nameFlag != "" {
+			} else if cmd.IsSet("name") {
 				req.Name = &nameFlag
 			}
 
-			if noteFlag != "" {
+			if cmd.IsSet("note") {
 				req.Note = &noteFlag
 			}
 

@@ -261,6 +261,13 @@ workflowy list --all --format=json
 
 ---
 
+### workflowy mirror / delete-mirror
+
+Create a live mirror with `workflowy mirror <source-id> <parent-id> --position bottom`.
+Remove an instance with `workflowy delete-mirror <mirror-id>`, preserving its origin.
+See [API coverage and mirror restrictions](API-COVERAGE.md) for identifiers, JSON
+receipts, scope handling, and empty updates.
+
 ### workflowy create
 
 Create a new node.
