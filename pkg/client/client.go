@@ -64,19 +64,41 @@ func brokerMode() string {
 	}
 }
 
+func brokerHome() string {
+	if home := os.Getenv("WF_BROKER_HOME"); home != "" {
+		return home
+	}
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(userHome, ".local", "share", "workflowy-broker")
+}
+
 func brokerSocketPath() string {
 	if socket := os.Getenv("WF_BROKER_SOCKET"); socket != "" {
 		return socket
 	}
-	home := os.Getenv("WF_BROKER_HOME")
+	home := brokerHome()
 	if home == "" {
-		userHome, err := os.UserHomeDir()
-		if err != nil {
-			return ""
-		}
-		home = filepath.Join(userHome, ".local", "share", "workflowy-broker")
+		return ""
 	}
 	return filepath.Join(home, "broker.sock")
+}
+
+// brokerInstalled reports whether the broker exists on this machine. Auto mode
+// routes as soon as it is installed: an installed broker whose socket is gone
+// must fail clearly instead of silently falling back to a direct call.
+func brokerInstalled(socket string) bool {
+	if _, err := os.Stat(socket); err == nil {
+		return true
+	}
+	home := brokerHome()
+	if home == "" {
+		return false
+	}
+	info, err := os.Stat(home)
+	return err == nil && info.IsDir()
 }
 
 // brokerRoute returns the socket to dial for this base URL, or "" to call
@@ -94,10 +116,8 @@ func brokerRoute(base string) string {
 	if socket == "" {
 		return ""
 	}
-	if mode == "auto" {
-		if _, err := os.Stat(socket); err != nil {
-			return ""
-		}
+	if mode == "auto" && !brokerInstalled(socket) {
+		return ""
 	}
 	return socket
 }

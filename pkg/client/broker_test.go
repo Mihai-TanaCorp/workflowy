@@ -17,9 +17,13 @@ import (
 )
 
 func TestBrokerRouteOnlyTargetsWorkflowyHosts(t *testing.T) {
-	socket := filepath.Join(t.TempDir(), "broker.sock")
+	base := t.TempDir()
+	socket := filepath.Join(base, "broker.sock")
+	home := filepath.Join(base, "home")
 
+	// Nothing installed yet: neither the socket nor the home exists.
 	t.Setenv("WF_BROKER_SOCKET", socket)
+	t.Setenv("WF_BROKER_HOME", home)
 
 	t.Setenv("WF_BROKER", "off")
 	assert.Empty(t, brokerRoute("https://workflowy.com/api/v1"), "off must never route")
@@ -32,9 +36,47 @@ func TestBrokerRouteOnlyTargetsWorkflowyHosts(t *testing.T) {
 	assert.Empty(t, brokerRoute("https://example.com/api/v1"))
 
 	t.Setenv("WF_BROKER", "auto")
-	assert.Empty(t, brokerRoute("https://workflowy.com/api/v1"), "auto must not route without a socket")
+	assert.Empty(t, brokerRoute("https://workflowy.com/api/v1"), "auto must not route when nothing is installed")
+
+	// Installed but unavailable: the home exists while the socket does not, so
+	// auto must still route — the call then fails clearly instead of silently
+	// falling back to a direct call.
+	require.NoError(t, os.MkdirAll(home, 0o700))
+	assert.Equal(t, socket, brokerRoute("https://workflowy.com/api/v1"),
+		"an installed broker without a socket must not be bypassed")
+
 	require.NoError(t, os.WriteFile(socket, nil, 0o600))
-	assert.Equal(t, socket, brokerRoute("https://workflowy.com/api/v1"), "auto routes once the socket exists")
+	assert.Equal(t, socket, brokerRoute("https://workflowy.com/api/v1"),
+		"auto routes once the socket exists")
+}
+
+func TestBrokerInstalledButUnavailableFailsClearly(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	require.NoError(t, os.MkdirAll(home, 0o700))
+	socket := filepath.Join(home, "broker.sock") // never created
+
+	t.Setenv("WF_BROKER_HOME", home)
+	t.Setenv("WF_BROKER_SOCKET", socket)
+	t.Setenv("WF_BROKER", "auto")
+
+	c := New("https://workflowy.com/api/v1", func(client *Client) {
+		client.SetAuth(func(r *http.Request) {
+			r.Header.Set("Authorization", "Bearer test-key")
+		})
+	})
+	require.NotNil(t, c.brokerSocket, "auto must route to an installed broker")
+
+	var out map[string]any
+	err := c.Do(context.Background(), "GET", "/nodes/x", nil, &out)
+	require.Error(t, err, "an unavailable broker must fail, not fall back to a direct call")
+	assert.Contains(t, err.Error(), "workflowy broker unavailable")
+	assert.Contains(t, err.Error(), "not sent")
+	assert.Contains(t, err.Error(), "WF_BROKER=auto")
+
+	t.Setenv("WF_BROKER", "off")
+	assert.Empty(t, New("https://workflowy.com/api/v1").brokerSocket,
+		"WF_BROKER=off stays the explicit way out")
 }
 
 // End-to-end proof that a Workflowy call travels over the private socket and
