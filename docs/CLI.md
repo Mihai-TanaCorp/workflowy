@@ -711,9 +711,14 @@ workflowy report mirrors --top-n 10
 ### Export API (`--method=export`)
 
 - **When used**: Default for depth ≥4 or `--all`
-- **Characteristics**: Single API call, cached locally
-- **Cache location**: `~/.workflowy/export-cache.json`
+- **Characteristics**: Single API call; with the local Workflowy broker installed, reads use its machine-wide snapshot, refreshed hourly and asynchronously after successful brokered writes
+- **Direct-mode cache**: `~/.workflowy/export-cache.json` remains in use when the broker is not routing calls
 - **Best for**: Full tree access, deep fetches
+
+By default, `DONT_USE_CACHE` is unset and the broker snapshot is used. Set
+`DONT_USE_CACHE=true` to bypass client and broker read caches for a run; the
+`--force-refresh` option also bypasses the broker snapshot for this export.
+Successful writes still use the broker and are never automatically replayed.
 
 ```bash
 # Bypass cache

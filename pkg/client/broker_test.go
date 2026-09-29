@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -77,6 +78,45 @@ func TestBrokerInstalledButUnavailableFailsClearly(t *testing.T) {
 	t.Setenv("WF_BROKER", "off")
 	assert.Empty(t, New("https://workflowy.com/api/v1").brokerSocket,
 		"WF_BROKER=off stays the explicit way out")
+}
+
+func TestCacheBypassHeaderOnlyAppliesToBrokerReads(t *testing.T) {
+	home, err := os.MkdirTemp("", "wfb")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(home) })
+	socket := filepath.Join(home, "broker.sock")
+	listener, err := net.Listen("unix", socket)
+	require.NoError(t, err)
+
+	var cacheModes []string
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cacheModes = append(cacheModes, r.Header.Get("X-WF-Cache-Mode"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"ok":true}`)
+	})}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
+
+	t.Setenv("WF_BROKER", "required")
+	t.Setenv("WF_BROKER_HOME", home)
+	t.Setenv("WF_BROKER_SOCKET", socket)
+	t.Setenv("DONT_USE_CACHE", "true")
+	c := New("https://workflowy.com/api/v1", func(client *Client) {
+		client.SetAuth(func(r *http.Request) {
+			r.Header.Set("Authorization", "Bearer test-token")
+		})
+	})
+
+	var out map[string]bool
+	require.NoError(t, c.Do(context.Background(), http.MethodGet, "/nodes/read", nil, &out))
+	require.NoError(t, c.Do(context.Background(), http.MethodPost, "/nodes/write", map[string]string{"name": "test"}, nil))
+
+	t.Setenv("DONT_USE_CACHE", "false")
+	require.NoError(t, c.Do(context.Background(), http.MethodGet, "/nodes/cached", nil, &out))
+	ctx := WithCacheBypass(context.Background())
+	require.NoError(t, c.Do(ctx, http.MethodGet, "/nodes/forced", nil, &out))
+
+	require.Equal(t, []string{"bypass", "", "", "bypass"}, cacheModes)
 }
 
 // End-to-end proof that a Workflowy call travels over the private socket and
