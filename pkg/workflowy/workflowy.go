@@ -28,6 +28,15 @@ func WithAPIKey(apiKey string) client.Option {
 	}
 }
 
+func cacheBypassRequested() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("DONT_USE_CACHE"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 // WithAPIKeyFromFile reads API key from file and sets up Bearer token authentication
 func WithAPIKeyFromFile(filename string) (client.Option, error) {
 	slog.Debug("loading API key", "file", filename)
@@ -707,6 +716,16 @@ func sortItemsByPriorityRecursive(item *Item) {
 // ExportNodesWithCache retrieves all nodes using cache when valid
 // forceRefresh bypasses cache and fetches fresh data
 func (wc *WorkflowyClient) ExportNodesWithCache(ctx context.Context, forceRefresh bool) (*ExportNodesResponse, error) {
+	// The machine-wide broker is the source of truth for brokered clients. Do
+	// not let this process's older disk cache hide its post-write/hourly refresh.
+	// An explicit force refresh or DONT_USE_CACHE=true bypasses both caches.
+	if wc.UsesBroker() || cacheBypassRequested() {
+		if forceRefresh || cacheBypassRequested() {
+			ctx = client.WithCacheBypass(ctx)
+		}
+		return wc.ExportNodes(ctx)
+	}
+
 	// Try to read cache first
 	cachedData, err := cache.ReadExportCache()
 	if err != nil {

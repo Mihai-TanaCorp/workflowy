@@ -47,6 +47,23 @@ const (
 	brokerQueueSafetyMs    = 300000
 )
 
+type brokerCacheBypassKey struct{}
+
+// WithCacheBypass marks GET requests in ctx to bypass the broker's shared
+// snapshot cache. DONT_USE_CACHE=true provides the same behavior process-wide.
+func WithCacheBypass(ctx context.Context) context.Context {
+	return context.WithValue(ctx, brokerCacheBypassKey{}, true)
+}
+
+func dontUseCache() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("DONT_USE_CACHE"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 var brokerHosts = map[string]bool{
 	"workflowy.com":      true,
 	"www.workflowy.com":  true,
@@ -160,6 +177,12 @@ func New(base string, opts ...Option) *Client {
 	return c
 }
 
+// UsesBroker reports whether Workflowy calls from this client use the local
+// machine-wide broker.
+func (c *Client) UsesBroker() bool {
+	return c != nil && c.brokerSocket != ""
+}
+
 func (c *Client) Do(ctx context.Context, method, path string, in any, out any) error {
 	u := c.baseURL + path
 
@@ -196,6 +219,10 @@ func (c *Client) Do(ctx context.Context, method, path string, in any, out any) e
 		req.Header.Set("X-WF-Client", "workflowy-go")
 		req.Header.Set("X-WF-Op", strings.ToLower(method))
 		req.Header.Set("X-WF-Timeout-Ms", strconv.Itoa(brokerDefaultTimeoutMs))
+		if strings.EqualFold(method, http.MethodGet) &&
+			(dontUseCache() || ctx.Value(brokerCacheBypassKey{}) == true) {
+			req.Header.Set("X-WF-Cache-Mode", "bypass")
+		}
 	}
 
 	c.auth(req)
